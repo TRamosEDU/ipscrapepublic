@@ -36,20 +36,57 @@ if new_unique_values:
             writer.writeheader()
         for value in new_unique_values:
             writer.writerow({fieldname: value})
-            # Add new IP to iptables
-            subprocess.run([
+            # Add new IP to iptables and verify
+            add_result = subprocess.run([
                 'sudo', 'iptables', '-A', 'INPUT',
                 '-s', value,
                 '-j', 'DROP',
                 '-m', 'comment', '--comment', 'IPScrape'
             ], check=False)
+            
+            # Check if rule was added
+            check_add = subprocess.run([
+                'sudo', 'iptables', '-C', 'INPUT',
+                '-s', value,
+                '-j', 'DROP',
+                '-m', 'comment', '--comment', 'IPScrape'
+            ], check=False)
+            if check_add.returncode == 0:
+                print(f"Successfully added rule for {value}")
+            else:
+                print(f"Failed to add rule for {value}")
 
 # Remove IPs from iptables that are in CSV but not in current list
 ips_to_remove = existing_values - set(us_east_ips)
 for ip in ips_to_remove:
-    subprocess.run([
+    # Check if rule exists before removal
+    check_exists = subprocess.run([
+        'sudo', 'iptables', '-C', 'INPUT',
+        '-s', ip,
+        '-j', 'DROP',
+        '-m', 'comment', '--comment', 'IPScrape'
+    ], check=False)
+    if check_exists.returncode != 0:
+        print(f"Rule for {ip} does not exist, skipping removal")
+        continue
+    
+    # Remove the rule
+    remove_result = subprocess.run([
         'sudo', 'iptables', '-D', 'INPUT',
         '-s', ip,
         '-j', 'DROP',
         '-m', 'comment', '--comment', 'IPScrape'
     ], check=False)
+    
+    # Verify removal
+    check_removed = subprocess.run([
+        'sudo', 'iptables', '-C', 'INPUT',
+        '-s', ip,
+        '-j', 'DROP',
+        '-m', 'comment', '--comment', 'IPScrape'
+    ], check=False)
+    if check_removed.returncode != 0:
+        print(f"Successfully removed rule for {ip}")
+    else:
+        print(f"Failed to remove rule for {ip}")
+        
