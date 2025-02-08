@@ -3,6 +3,24 @@ import csv
 import os
 import subprocess
 
+def list_current_iptables_ips():
+    # Retrieve iptables rules and filter those with the 'IPScrape' comment
+    result = subprocess.run(['sudo', 'iptables-save'], capture_output=True, text=True)
+    output = result.stdout
+    current_ips = []
+    for line in output.splitlines():
+        if 'IPScrape' in line and '-A INPUT' in line:
+            parts = line.split()
+            try:
+                s_index = parts.index('-s')
+                ip = parts[s_index + 1]
+                current_ips.append(ip)
+            except (ValueError, IndexError):
+                continue
+    print("\nCurrent IPs in iptables with comment 'IPScrape':")
+    for ip in current_ips:
+        print(ip)
+
 url = "redacted"
 response = requests.get(url)
 data = response.json()
